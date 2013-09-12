@@ -59,7 +59,8 @@ io.enumerate = function (directory, callback) {
     
     // Put directory in proper form
     if (directory.length > 1 && directory[0] == '/') {
-      directory = directory.slice(1);
+	//This cause error in our custom device.
+      //directory = directory.slice(1);
     }
     if (directory[directory.length - 1] != '/') {
       directory = (directory + '/');
@@ -106,6 +107,11 @@ io.enumerate = function (directory, callback) {
           return;        
         }
         
+	//Fix for custom device
+	if (directory == '/') {
+          directory = '/sdcard/';
+	}
+
         // Only get files in the current folder
         if (thisFile[0] != directory) {          
           // Split directory into current directory and folder
@@ -117,7 +123,12 @@ io.enumerate = function (directory, callback) {
             thisFile[1] = thisFile[0];
             thisFile[0] = directory;
           }
+
           
+	  //TungBS: added this to fix error
+	  if (thisFile[1].length > 1 && thisFile[1][0] == '/') {
+	    thisFile[1] = thisFile[1].slice(1);
+	  }
           // Remove descendants of descendants
           while (thisFile[1].contains('/')) {
             thisFile[1] = thisFile[1].substring(0, thisFile[1].lastIndexOf('/'));
