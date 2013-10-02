@@ -27,7 +27,7 @@ io.start = function (api, callback) {
       if (this.result != "available") {
         deviceAPI = null;
         storage = null;
-        alert("The SDCard on your device is shared, and thus not available.");
+        alert("The SDCard on your device is not available.");
         return;
       } else {
         callback(null, storage);  
@@ -67,14 +67,14 @@ io.enumerate = function (directory, callback) {
   
     if (deviceAPI == 'deviceStorage') {
       // Get all the files in the specified directory
-      var cursor = storage.enumerate(directory.substring(0, -1));
+      if (directory == '/') {
+        var cursor = storage.enumerate();
+      } else {
+        var cursor = storage.enumerate(directory.substring(0, -1));
+      }
     
       cursor.onerror = function() {
         if (cursor.error.name == 'TypeMismatchError') {
-          saveFile(directory, 'prospector','.temp','A temp file!  You should not be seeing this.  If you see it, please report it to <a href="https://github.com/codexa/prospector/issues/" target="_blank">us</a>.', false, function() {
-            deleteFile('prospector.temp');
-          });
-          updateFileLists();
           return;
         } else if (cursor.error.name == 'SecurityError') {
           alert('Please allow Prospector to access your SD card.');
@@ -116,6 +116,11 @@ io.enumerate = function (directory, callback) {
           } else {
             thisFile[1] = thisFile[0];
             thisFile[0] = directory;
+          } 
+          
+          //TungBS: added this to fix error
+          if (thisFile[1].length > 1 && thisFile[1][0] == '/') {
+            thisFile[1] = thisFile[1].slice(1);
           }
           
           // Remove descendants of descendants
@@ -187,26 +192,7 @@ io.load = function (directory, filename, filetype, callback) {
   if (deviceAPI == 'deviceStorage') {
     var req = storage.get(filePath);
     req.onsuccess = function () {
-      var file = req.result;
-      var reader = new FileReader();
-      
-      /* Remove when porting to other projects */
-      if (prospector.typeGroup(filetype) == 'image') {
-        reader.readAsDataURL(file);
-      } else {
-        reader.readAsText(file);
-      }
-      /* End of customized section */
-      
-      reader.onerror = function () {
-        alert('Load unsuccessful :( \n\nInfo for gurus:\n"' + this.error.name + '"');
-        callback(this.error.name, true);
-      };
-      
-      reader.onload = function () {
-        var file = this.result;    
-        callback(file);
-      };
+      callback(req.result);
     };
     
     req.onerror = function () {

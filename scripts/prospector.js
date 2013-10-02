@@ -23,7 +23,7 @@ var sieve, pickActivity, path, multiple, filter = [], sieveSelection = [];
 // Misc
 var deviceType;
 var html = document.getElementsByTagName('html')[0], head = document.getElementsByTagName("head")[0];
-var fileArea, fileBox, docList, currentDirectory, currentDirectoryDisplay;
+var fileArea, docList, currentDirectory, currentDirectoryDisplay;
 var editState, editSelection = [];
 var folderTree, isInitialized;
 prospector.initialized = new CustomEvent('prospector.initialized');
@@ -69,7 +69,6 @@ prospector.init = function () {
   
   // Select important elements
   fileArea = document.getElementById('file-area');
-  fileBox = document.getElementById('file-box');
   currentDirectory = document.getElementById('current-directory');
   if (sieve != true) {
     // Select Prospector-only elements
@@ -133,6 +132,9 @@ function editMode() {
 ------------------------*/
 prospector.openDirectory = function (directory, animation) {
   var fileList;
+  
+  // Show activity bar
+  document.getElementById('progress').classList.remove('hidden');
 
   // Generate file list
   io.enumerate((directory), function(FILES) {
@@ -146,7 +148,7 @@ prospector.openDirectory = function (directory, animation) {
     }
     
     // Build file list
-    prospector.buildFileList(FILES, [fileList], 'Files Found');
+    prospector.buildFileList(FILES, [fileList], 'No files found, does this directory even exist?');
     
     // Animate
     if (animation == 'reverse') {
@@ -156,6 +158,9 @@ prospector.openDirectory = function (directory, animation) {
       var removedNode = fileArea.removeChild(fileArea.firstElementChild);
       fileArea.appendChild(removedNode);
     }
+    
+    // Hide activity bar
+    document.getElementById('progress').classList.add('hidden');
   });
   
   // Update displays
@@ -209,9 +214,7 @@ prospector.buildFileList = function (FILES, listElms, display) {
       }
     } else {
       // No docs message
-      output = '<ul><li style="margin-top: 1rem;" class="noLink">';
-      output += '<p>No ' + display + '</p>';
-      output += '</li></ul>';      
+      output = '<p style="text-align: center; font-size: 1.8rem; padding: 1rem;">' + display + '</p>';
     }
     
     // Display output HTML
@@ -284,54 +287,60 @@ function fileItem(directory, name, type, mime) {
 ------------------------*/
 prospector.open = function (dir, name, type, mime) {
   if (dir && name && type && mime) {
-    // Open with Web Activities
-    var activity = new MozActivity({  
-      // Ask for the "open" activity
-      name: "open",
+  
+    io.load(dir, name, type, function (result) {
+      // Open with Web Activities
+      var activity = new MozActivity({  
+        // Ask for the "open" activity
+        name: "open",
 
-      // Provide the data required by the filters of the activity
-      data: {
-        path: (dir + name + type),
-        type: mime
-      }
+        // Provide the data required by the filters of the activity
+        data: {
+          path: (dir + name + type),
+          blob: result,
+          type: mime
+        }
+      });
+
+      activity.onsuccess = function() {
+        console.log('File has been closed.');
+      };
+
+      activity.onerror = function() {
+        console.log(this.error);
+      };
     });
-
-    activity.onsuccess = function() {
-      console.log('File has been closed.');
-    };
-
-    activity.onerror = function() {
-      console.log(this.error);
-    };
   }
 };
 
 
 /* Web Activities
 ------------------------*/ 
-navigator.mozSetMessageHandler('activity', function(activityRequest) {
-  var activity = activityRequest.source;
+if (navigator && navigator.mozSetMessageHandler) {
+  navigator.mozSetMessageHandler('activity', function(activityRequest) {
+    var activity = activityRequest.source;
   
-  // Wait for Prospector to be initialized
-  window.addEventListener('prospector.initialized', function () {
-    // Handle activities
-    if (activity.name === "open") {
-      // Open folder
-      prospector.openDirectory(activity.data.path);
-    } else if (activity.name === "pick") {
-      // Sieve
-      pickActivity = activityRequest;
-      multiple = activity.data.multiple;
-      if (activity.data.path) {
-        path = activity.data.path;
-        prospector.openDirectory(path);      
+    // Wait for Prospector to be initialized
+    window.addEventListener('prospector.initialized', function () {
+      // Handle activities
+      if (activity.name === "open") {
+        // Open folder
+        prospector.openDirectory(activity.data.path);
+      } else if (activity.name === "pick") {
+        // Sieve
+        pickActivity = activityRequest;
+        multiple = activity.data.multiple;
+        if (activity.data.path) {
+          path = activity.data.path;
+          prospector.openDirectory(path);      
+        }
       }
+    });
+    if (isInitialized == true && sieve != true) {
+      window.dispatchEvent(prospector.initialized);
     }
   });
-  if (isInitialized == true && sieve != true) {
-    window.dispatchEvent(prospector.initialized);
-  }
-});
+}
 
 
 /* Actions
@@ -398,13 +407,6 @@ function processActions(eventAttribute, target) {
     } else if (calledFunction == 'back') {
       // Navigate to the previous region
       navBack();
-    } else if (calledFunction == 'close') {
-      // Clear file box
-      fileBox.innerHTML = '<span style="color: red;">Not supported...</span>';
-      fileBox.setAttribute('style', '');
-      fileBox.setAttribute('data-file-type', '');
-      document.getElementById('current-file-display').textContent = 'No file open';
-      navBack();
     } else if (calledFunction == 'edit-mode') {
       // Change the edit mode
       editMode();
@@ -444,14 +446,34 @@ function processActions(eventAttribute, target) {
 	  }
     } else if (calledFunction == 'grid') {
       // Change to grid display
-      fileArea.setAttribute('data-type', 'grid');
-      document.getElementById('grid-button').classList.add('active');
-      document.getElementById('list-button').classList.remove('active');
+      if(document.getElementById("list-button") !== null){
+        var gridy = document.getElementById('list-button');
+        fileArea.setAttribute('data-type', 'grid');
+        gridy.setAttribute("id", "grid-button");
+        gridy.setAttribute("data-click", "grid");
+        gridy.childNodes[0].setAttribute("data-icon", "list");
+      } else {
+        var listy = document.getElementById('grid-button');
+        fileArea.setAttribute('data-type', 'list');
+        listy.setAttribute("id", "list-button");
+        listy.setAttribute("data-click", "list");
+        listy.childNodes[0].setAttribute("data-icon", "grid");
+      }
     } else if (calledFunction == 'list') {
       // Change to list display
-      fileArea.setAttribute('data-type', 'list');
-      document.getElementById('list-button').classList.add('active');
-      document.getElementById('grid-button').classList.remove('active');
+      if(document.getElementById("grid-button") !== null){
+        var listy = document.getElementById('grid-button');
+        fileArea.setAttribute('data-type', 'list');
+        listy.setAttribute("id", "list-button");
+        listy.setAttribute("data-click", "list");
+        listy.childNodes[0].setAttribute("data-icon", "grid");
+      } else {
+        var gridy = document.getElementById('list-button');
+        fileArea.setAttribute('data-type', 'grid');
+        gridy.setAttribute("id", "grid-button");
+        gridy.setAttribute("data-click", "grid");
+        gridy.childNodes[0].setAttribute("data-icon", "list");
+      }
     } else if (calledFunction == 'delete') {
       if (editSelection.length > 0) {
         // Confirm
@@ -488,7 +510,7 @@ function processActions(eventAttribute, target) {
         prospector.openDirectory(target.getAttribute(eventAttribute+'-directory') + target.getAttribute(eventAttribute+'-name'));
       } else {
         // Get URI     
-        var selection = (target.getAttribute(eventAttribute+'-directory') + target.getAttribute(eventAttribute+'-name') + target.getAttribute(eventAttribute+'-extension'));
+        var selection = [target.getAttribute(eventAttribute+'-directory'), target.getAttribute(eventAttribute+'-name'), target.getAttribute(eventAttribute+'-extension')];
 
         if (target.classList.contains('selected')) {
           // Deselect item
@@ -496,9 +518,12 @@ function processActions(eventAttribute, target) {
           
           // Remove from sieveSelection
           for (var i = 0; i < sieveSelection.length; i++) {
-            if (sieveSelection[i] == selection) {
+            if (sieveSelection[i][0] == selection[0] &&
+                sieveSelection[i][1] == selection[1] &&
+                sieveSelection[i][2] == selection[2]) {
 	          sieveSelection.splice(i, 1);
 	          break;
+	          return;
 	        }
           }
         } else {
@@ -515,7 +540,9 @@ function processActions(eventAttribute, target) {
           
           // Remove duplicates
           for (var i = 0; i < sieveSelection.length; i++) {
-            if (sieveSelection[i] == selection) {
+            if (sieveSelection[i][0] == selection[0] &&
+                sieveSelection[i][1] == selection[1] &&
+                sieveSelection[i][2] == selection[2]) {
 	          sieveSelection.splice(i, 1);
 	          break;
 	        }
@@ -534,15 +561,28 @@ function processActions(eventAttribute, target) {
       }
     } else if (sieve == true && calledFunction == 'sieve-done') {
       if (sieveSelection && sieveSelection != '') {
-        // Convert to string if multiple != true
-        if (multiple != true) {
-          sieveSelection = sieveSelection.toString();
-        }
-      
-        // Return selection
-        pickActivity.postResult(sieveSelection);
-        pickActivity = null; 
-        sieveSelection = [];
+        // Load blobs
+        var blobs = [];
+        for (var i = 0; i < sieveSelection.length; i++) {
+          io.load(sieveSelection[i][0], sieveSelection[i][1], sieveSelection[i][2], function (blob) {
+            // Return selection   
+            blobs.push(blob);
+            
+            // Finish 
+            if (i == sieveSelection.length) {
+              // If single selection, convert blobs array to string
+              if (blobs.length == 1) {
+                blobs = blobs[0];
+              }
+        
+              // Post result
+              pickActivity.postResult(blobs);
+              pickActivity = null; 
+              sieveSelection = [];
+              return;       
+            }
+          });
+        }        
       } else {
         // Close Sieve
         pickActivity.postResult('ActivityCanceled');

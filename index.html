@@ -20,6 +20,7 @@
   <script type="text/javascript" src="scripts/prospector.js"></script>
   
   <!-- Stylesheets -->
+  <link rel="stylesheet" type="text/css" href="style/progress_activity.css" />
   <link rel="stylesheet" type="text/css" href="style/lists.css" />
   <link rel="stylesheet" type="text/css" href="style/grids.css" />
   <link rel="stylesheet" type="text/css" href="style/headers.css" />
@@ -35,11 +36,12 @@
     <header>
       <button data-click="previous" id="back-button" class="disabled"><span class="icon" data-icon="back">&lt;</span></button>
       <menu type="toolbar">
-       <button data-click="grid" id="grid-button" class="active"><span class="icon" data-icon="grid">Grid</span></button>
+       <!--<button data-click="grid" id="grid-button"><span class="icon" data-icon="grid">Grid</span></button>-->
        <button data-click="list" id="list-button"><span class="icon" data-icon="list">List</span></button>
       </menu>
       <h1 class="center" id="current-directory-display">Prospector</h1>
     </header>
+    <progress max="100" value="0" class="pack-activity light hidden" id="progress" style="position: absolute; z-index: 1000;"></progress>
     <div role="edit" data-type="edit" id="edit-mode">
       <section>
         <header>
@@ -60,15 +62,6 @@
         <article></article>
         <article></article>
       </div>
-    </div>
-  </section>
-  <section role="region" id="file">
-    <header>
-      <button data-click="close"><span class="icon" data-icon="back">&lt;</span></button>
-      <h1 class="center" id="current-file-display">No file open</h1>
-    </header>
-    <div role="main" class="header-only" id="file-box">
-      <span style="color: red;">Not supported...</span>
     </div>
   </section>
   <hidden style="display: none;" id="current-directory"></hidden>
